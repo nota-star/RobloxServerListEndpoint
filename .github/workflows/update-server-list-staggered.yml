@@ -1,9 +1,12 @@
-name: Update Roblox Server List (slot B - staggered)
+name: Update Roblox Server List 2
 
 on:
-  #schedule:
-   #- cron: '2-59/5 * * * *'   # minutes 2 + 5,10,15,20
-  workflow_dispatch: {}
+  schedule:
+    - cron: '*/6 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   update:
@@ -12,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          persist-credentials: false   
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -22,18 +25,19 @@ jobs:
       - name: Run fetch script
         run: node fetch_servers.js
 
-      - name: Commit and push if changed (pull/rebase first)
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+      - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git"
-          git pull --rebase origin ${{ github.ref_name || 'main' }} || true
+
+          git fetch origin main
+          git rebase origin/main || true
+
           git add server_list.json raw_responses || true
+
           if git diff --cached --quiet; then
             echo "No changes"
           else
-            git commit -m "Update server_list.json (B)"
-            git push origin HEAD:${{ github.ref_name || 'main' }}
+            git commit -m "Update server_list.json (A)"
+            git push origin HEAD:main
           fi
