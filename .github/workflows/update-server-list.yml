@@ -1,17 +1,18 @@
-name: Update Roblox Server List 1
+name: Update Roblox Server List
 
 on:
   schedule:
-    - cron: '*/6 * * * *'
+    - cron: '*/6 * * * *'   # every 6 minutes
   workflow_dispatch: {}
 
 jobs:
   update:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write   # allow pushes with GITHUB_TOKEN
+
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           persist-credentials: true
@@ -21,27 +22,37 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Run fetch_proxies (generate proxies_good.txt)
-        run: |
-          node fetch_proxies.js
+      # Step 1: Fetch proxies
+      - name: Run fetch_proxies.js
+        run: node fetch_proxies.js
 
-      - name: Run fetch_servers (uses proxies every 3 pages)
+      # Upload proxy file so you can see it in workflow artifacts
+      - name: Upload proxies_good.txt
+        uses: actions/upload-artifact@v4
+        with:
+          name: proxies
+          path: proxy_output/proxies_good.txt
+          if-no-files-found: ignore
+
+      # Step 2: Fetch Roblox servers (uses proxies every 3 pages automatically)
+      - name: Run fetch_servers.js
         env:
-          MAX_PAGES: 20          # change to desired page count
-          PAGE_LIMIT: 100        # servers per page param (keeps your existing param)
-        run: |
-          node fetch_servers.js
+          MAX_PAGES: 10        # number of Roblox server pages to fetch
+          PAGE_LIMIT: 100      # servers per page
+        run: node fetch_servers.js
 
-      - name: Commit and push if changed
+      # Step 3: Commit & push server data
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add server_list.json raw_responses || true
+
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Update server_list.json (A)" || true
-            git push origin HEAD:"${{ github.ref_name || 'main' }}" || true
+            git commit -m "Update server list"
+            git push origin HEAD:"${{ github.ref_name || 'main' }}"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
