@@ -2,40 +2,46 @@ name: Update Roblox Server List 1
 
 on:
   schedule:
-    - cron: '*/6 * * * *'  # Runs at 0, 5, 10, ...
-    #- cron: '2-59/5 * * * *' # Runs at 2, 7, 12, ...
-    #- cron: '4-59/5 * * * *' # Runs at 4, 9, 14, ...
+    - cron: '*/6 * * * *'
   workflow_dispatch: {}
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          persist-credentials: false  
+          persist-credentials: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Run fetch script
-        run: node fetch_servers.js
+      - name: Run fetch_proxies (generate proxies_good.txt)
+        run: |
+          node fetch_proxies.js
 
-      - name: Commit and push if changed (pull/rebase first)
+      - name: Run fetch_servers (uses proxies every 3 pages)
         env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          MAX_PAGES: 20          # change to desired page count
+          PAGE_LIMIT: 100        # servers per page param (keeps your existing param)
+        run: |
+          node fetch_servers.js
+
+      - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git"
-          git pull --rebase origin ${{ github.ref_name || 'main' }} || true
           git add server_list.json raw_responses || true
           if git diff --cached --quiet; then
-            echo "No changes"
+            echo "No changes to commit."
           else
-            git commit -m "Update server_list.json (A)"
-            git push origin HEAD:${{ github.ref_name || 'main' }}
+            git commit -m "Update server_list.json (A)" || true
+            git push origin HEAD:"${{ github.ref_name || 'main' }}" || true
           fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
