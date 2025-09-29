@@ -94,7 +94,7 @@ async function main() {
   }));
 
   // set -> array
-  const candidates = Array.from(all).slice(0, 2000); // cap
+  const candidates = Array.from(all).slice(0, 750); // cap
   console.log(`Collected ${candidates.length} candidate proxies.`);
 
   // Validate
